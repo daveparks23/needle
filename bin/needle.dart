@@ -5,6 +5,8 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 import 'package:logging/logging.dart';
+import 'package:needle_cat/src/cli/cat_command.dart';
+import 'package:needle_cat/src/cli/ports_command.dart';
 
 Future<void> main(List<String> args) async {
   final runner =
@@ -22,7 +24,9 @@ Future<void> main(List<String> args) async {
           help: 'CAT rate. Requires radio menu 05-06 to match.',
         );
 
-  // Subcommands are registered in later tasks.
+  runner
+    ..addCommand(PortsCommand())
+    ..addCommand(CatCommand());
 
   try {
     final results = runner.parse(args);

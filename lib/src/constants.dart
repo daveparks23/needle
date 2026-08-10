@@ -19,9 +19,37 @@ const int kDefaultBaud = 38400;
 const List<int> kSupportedBauds = [4800, 9600, 19200, 38400];
 
 const Duration kCommandTimeout = Duration(milliseconds: 500);
+
+/// How often the serial transport drains the OS receive buffer.
+///
+/// We run our own pump rather than using `SerialPortReader`: that class hands
+/// a raw `Pointer<sp_port>` to a spawned isolate and only asks it to stop
+/// asynchronously, so disposing the port during close frees the struct while
+/// the isolate is still inside `sp_wait` — a segfault. Close/reopen is the
+/// backbone of resync here, so that race is not survivable.
+///
+/// At 38400 baud a 28-character `IF` answer occupies ~7 ms of wire time and
+/// the radio's own turnaround measured 11-16 ms, so 2 ms of polling adds
+/// nothing meaningful to round-trip latency.
+const Duration kSerialPollInterval = Duration(milliseconds: 2);
 const int kMaxRetriesPerCommand = 1;
 const int kTimeoutsBeforeResync = 3;
 const Duration kReconnectBackoff = Duration(seconds: 2);
+
+/// How long the radio ignores CAT after it answers `?;`.
+///
+/// Measured on the dev FT-891: following a rejection, commands sent at 0.4,
+/// 0.5, 0.6, 0.7, 0.8 and 0.9 s were all silently discarded, while 1.0 s and
+/// beyond succeeded every time. That threshold is menu **05-07 CAT TOT**,
+/// which the setup guide sets to 1000 ms.
+///
+/// So a rejection costs far more than the rejected command. The handoff spec
+/// says only "do not retry blindly"; the stronger rule is that the queue must
+/// go quiet for this long, or every command sent during the window is thrown
+/// away and the link looks dead when it is merely sulking.
+///
+/// If an operator raises CAT TOT above 1000 ms, raise this to match.
+const Duration kRejectionRecovery = Duration(milliseconds: 1000);
 
 /// Poll group cadences (spec §5.5). If the measured round-trip cannot sustain
 /// both, reduce the medium group before the fast group — meter responsiveness
