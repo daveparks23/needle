@@ -3,7 +3,10 @@
     "allow": [
       "Bash(git init *)",
       "Bash(dart pub *)",
-      "Bash(dart test *)"
+      "Bash(dart test *)",
+      "Bash(dart run *)",
+      "Bash(curl -sL -o docs/ft891_cat_reference.pdf \"https://rigreference.com/storage/manuals/yaesu/FT-891%20CAT%20Reference%20Book.pdf--5a6a4c01735456.71645851.pdf\")",
+      "Bash(python3 -c ' *)"
     ]
   }
 }

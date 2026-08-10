@@ -6,4 +6,6 @@
 /// a single transport, or a console.
 library;
 
+export 'src/cat/codec.dart';
+export 'src/cat/commands.dart';
 export 'src/constants.dart';
