@@ -110,6 +110,15 @@ class RigController {
   /// Round-trip of the last answered command, for `--verbose`.
   Duration? lastRoundTrip;
 
+  /// Health counters. Success criterion 3.2 asks for "zero desyncs and zero
+  /// stuck states" over a 60-second knob-spinning run; counting them makes
+  /// that a measurement rather than an impression.
+  int desyncs = 0;
+  int timeouts = 0;
+  int rejections = 0;
+  int resyncs = 0;
+  int responses = 0;
+
   /// Opens the transport and starts polling.
   Future<void> start() async {
     if (_running) return;
@@ -273,6 +282,7 @@ class RigController {
       // Arm the quiet window BEFORE completing: _completeInFlight drains the
       // queue, and without the timer already set one more command would slip
       // out into the dead window and be silently discarded.
+      rejections++;
       _goQuiet();
       degradedCommands.add(pending.command);
       _completeInFlight(null);
@@ -284,6 +294,7 @@ class RigController {
     // stream has slipped. Do not complete the pending command with someone
     // else's answer.
     if (!pending.command.startsWith(data.prefix)) {
+      desyncs++;
       _log.warning(
         'prefix mismatch: sent ${pending.command}, got ${data.prefix} — '
         'dropping',
@@ -291,6 +302,7 @@ class RigController {
       return;
     }
 
+    responses++;
     _consecutiveTimeouts = 0;
     lastRoundTrip = _sentAt == null
         ? null
@@ -377,6 +389,7 @@ class RigController {
     final pending = _inFlight;
     if (pending == null) return;
 
+    timeouts++;
     _consecutiveTimeouts++;
     _log.fine(
       'timeout on ${pending.command} '
@@ -416,6 +429,7 @@ class RigController {
     if (_resyncing || !_running) return;
     _resyncing = true;
 
+    resyncs++;
     _log.warning('$_consecutiveTimeouts consecutive timeouts — resyncing');
     _emit(_current.copyWith(phase: ConnectionPhase.degraded));
 
