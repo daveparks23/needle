@@ -14,3 +14,6 @@ export 'src/cat/rig_controller.dart';
 export 'src/cat/rig_state.dart';
 export 'src/cat/transport.dart';
 export 'src/constants.dart';
+export 'src/dsp/audio_source.dart';
+export 'src/dsp/mock_source.dart';
+export 'src/dsp/spectrum.dart';
