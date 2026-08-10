@@ -183,41 +183,70 @@ void main() {
   });
 }
 
-/// The fixture that ships with the package must actually drive the mock,
+/// The fixtures that ship with the package must actually drive the mock,
 /// otherwise `needle scope --mock` breaks without any test noticing.
 void _fixtureFileTests() {
-  group('bundled fixture', () {
+  group('bundled capture (real radio, 60s of knob spinning)', () {
     late String bundled;
 
     setUpAll(() {
       bundled = File('test/fixtures/cat_session_20m.txt').readAsStringSync();
     });
 
-    test('loads and answers the commands the scope demo polls', () async {
+    test('answers every command the recorder polled', () async {
       final t = MockTransport(fixture: bundled, speed: 1000);
       await t.open();
       final seen = <String>[];
       final sub = t.lines.listen(seen.add);
 
-      for (final cmd in ['ID;', 'IF;', 'MD0;', 'TX;', 'SH0;', 'FA;']) {
+      for (final cmd in ['IF;', 'SM0;', 'MD0;', 'TX;', 'SH0;']) {
         t.send(cmd);
         await _settle();
       }
 
-      expect(seen, hasLength(6));
-      expect(seen[0], 'ID0650');
-      expect(seen[1], startsWith('IF'));
+      expect(seen, hasLength(5));
+      expect(seen[0], startsWith('IF'));
+      expect(seen[1], startsWith('SM0'));
       expect(seen[2], 'MD02');
       expect(seen[3], 'TX0');
       expect(seen[4], 'SH0014');
-      expect(seen[5], startsWith('FA'));
 
       await sub.cancel();
       await t.close();
     });
 
-    test('replays the bogus S-meter zeros the debouncer exists to absorb', () async {
+    test('replays a moving VFO, so --mock does not look frozen', () async {
       final t = MockTransport(fixture: bundled, speed: 1000);
+      await t.open();
+      final seen = <String>[];
+      final sub = t.lines.listen(seen.add);
+
+      for (var i = 0; i < 12; i++) {
+        t.send('IF;');
+        await _settle();
+      }
+
+      final freqs = seen.map((l) => l.substring(3, 12)).toSet();
+      expect(
+        freqs.length,
+        greaterThan(1),
+        reason: 'the capture swept 14.074-15.853 MHz; the mock must show that',
+      );
+
+      await sub.cancel();
+      await t.close();
+    });
+  });
+
+  group('synthetic glitch fixture', () {
+    test('supplies the S-meter zeros the real capture never produced', () async {
+      // A 60s real capture under heavy knob motion yielded 0 zeros in 118
+      // reads: spec 5.7's glitch is specific to auto-info mode, which polling
+      // never enters. This fixture keeps the debouncer honestly exercised.
+      final t = MockTransport(
+        fixture: File('test/fixtures/cat_session_glitchy.txt').readAsStringSync(),
+        speed: 1000,
+      );
       await t.open();
       final seen = <String>[];
       final sub = t.lines.listen(seen.add);
@@ -227,11 +256,7 @@ void _fixtureFileTests() {
         await _settle();
       }
 
-      expect(
-        seen.where((s) => s == 'SM0000').length,
-        greaterThanOrEqualTo(3),
-        reason: 'fixture must contain a run of zeros to be worth having',
-      );
+      expect(seen.where((s) => s == 'SM0000').length, greaterThanOrEqualTo(3));
       expect(seen.any((s) => s != 'SM0000'), isTrue);
 
       await sub.cancel();

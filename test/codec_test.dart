@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:needle_cat/src/cat/codec.dart';
 import 'package:needle_cat/src/cat/commands.dart';
@@ -220,6 +221,72 @@ void main() {
       // un-key path uses TX0; -- see kUnkey.
       final framer = CatFramer()..add('?;'.codeUnits);
       expect(parseResponse(framer.takeLines().single), isA<CatRejected>());
+    });
+  });
+
+  // The strongest check the codec has: every response in a real 60-second
+  // session recorded while the VFO was swept 14.074 -> 15.853 MHz.
+  group('the whole recorded session parses', () {
+    late List<({String command, String response})> exchanges;
+
+    setUpAll(() {
+      exchanges = [
+        for (final line
+            in File('test/fixtures/cat_session_20m.txt').readAsLinesSync())
+          if (line.contains(' RX ')) (
+            command: '',
+            response: line.split(' RX ').last,
+          ),
+      ];
+    });
+
+    test('the capture is substantial enough to be meaningful', () {
+      expect(exchanges.length, greaterThan(500));
+    });
+
+    test('every recorded response parses as data, none as garbage', () {
+      for (final e in exchanges) {
+        final framed = CatFramer()..add(e.response.codeUnits);
+        final line = framed.takeLines().single;
+        expect(
+          parseResponse(line),
+          isA<CatData>(),
+          reason: 'failed on "${e.response}"',
+        );
+      }
+    });
+
+    test('every IF answer yields a plausible HF frequency', () {
+      final ifs = exchanges.where((e) => e.response.startsWith('IF'));
+      expect(ifs, isNotEmpty);
+      for (final e in ifs) {
+        final framed = CatFramer()..add(e.response.codeUnits);
+        final report = parseIf(
+          (parseResponse(framed.takeLines().single)! as CatData).payload,
+        );
+        expect(report, isNotNull, reason: 'failed on "${e.response}"');
+        expect(report!.freqHz, greaterThan(1000000));
+        expect(report.freqHz, lessThan(60000000));
+        expect(report.mode, RigMode.usb);
+        expect(report.onVfo, isTrue);
+      }
+    });
+
+    test('every SM answer is in range', () {
+      for (final e in exchanges.where((e) => e.response.startsWith('SM'))) {
+        final framed = CatFramer()..add(e.response.codeUnits);
+        final raw = parseSMeter(
+          (parseResponse(framed.takeLines().single)! as CatData).payload,
+        );
+        expect(raw, isNotNull, reason: 'failed on "${e.response}"');
+        expect(raw, inInclusiveRange(0, 255));
+      }
+    });
+
+    test('the session contains no rejections', () {
+      // 591 exchanges under heavy knob motion with zero '?;' answers. If a
+      // change to the poll set starts provoking rejections, this catches it.
+      expect(exchanges.where((e) => e.response.startsWith('?')), isEmpty);
     });
   });
 

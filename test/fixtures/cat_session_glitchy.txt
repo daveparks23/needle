@@ -1,0 +1,34 @@
+# needle CAT transcript v1
+#
+# SYNTHETIC. Unlike cat_session_20m.txt, this was not recorded from a radio.
+#
+# It exists because a real 60-second capture taken while spinning the VFO hard
+# (14.074 -> 15.853 MHz, 591 exchanges) produced ZERO bogus S-meter zeros. The
+# handoff spec's landmine is real but conditional: it says the glitch appears
+# "during auto-info bursts while the VFO knob is turning", and polling mode --
+# needle's default -- never enters that state.
+#
+# So SMeterDebouncer cannot be exercised by the honest capture. This file
+# reproduces the documented failure shape instead: runs of 000 interleaved with
+# good readings, including a single isolated zero that must NOT be believed and
+# a run of three that must be.
+0 TX SM0;
+6 RX SM0047;
+100 TX SM0;
+106 RX SM0052;
+200 TX SM0;
+206 RX SM0000;
+300 TX SM0;
+306 RX SM0061;
+400 TX SM0;
+406 RX SM0000;
+500 TX SM0;
+506 RX SM0000;
+600 TX SM0;
+606 RX SM0000;
+700 TX SM0;
+706 RX SM0038;
+800 TX IF;
+812 RX IF001014074000+000000200000;
+900 TX MD0;
+906 RX MD02;
