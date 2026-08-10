@@ -123,7 +123,10 @@ String setVfoA(int hz) => 'FA${_frequencyField(hz)};';
 String setVfoB(int hz) => 'FB${_frequencyField(hz)};';
 
 /// Builds `MD0<code>;`.
-String setMode(RigMode mode) {
+///
+/// Named with the `Command` suffix so it does not collide with
+/// `RigController.setMode`, which is the API callers actually want.
+String setModeCommand(RigMode mode) {
   if (mode == RigMode.unknown) {
     throw ArgumentError.value(mode, 'mode', 'cannot set an unknown mode');
   }
