@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+
+      # libserialport is an FFI binding; the C library must exist on the host.
+      # No test opens a port, but installing it keeps analysis and any future
+      # smoke test from failing on a missing dylib.
+      - name: Install libserialport
+        run: sudo apt-get update && sudo apt-get install -y libserialport-dev
+
+      - run: dart pub get
+      - run: dart analyze --fatal-infos
+      - run: dart test

@@ -1,0 +1,23 @@
+name: needle_cat
+description: Pure-Dart CAT control and audio spectrum tooling for the Yaesu FT-891.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.11.0 # floor set by test 1.31.2; lints 6.1.0 needs >=3.8.0
+
+executables:
+  # Package is needle_cat (needle is taken on pub.dev); the binary stays `needle`
+  # so every CLI example in the handoff spec remains valid verbatim.
+  needle: needle
+
+dependencies:
+  args: ^2.7.0
+  fftea: ^1.5.0
+  libserialport: ^0.3.0
+  logging: ^1.3.0
+  meta: ^1.19.0
+
+dev_dependencies:
+  lints: ^6.1.0
+  test: ^1.31.2

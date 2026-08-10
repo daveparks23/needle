@@ -1,0 +1,10 @@
+.dart_tool/
+.packages
+build/
+pubspec.lock
+
+# The CAT reference book is a large vendor PDF; fetch it with the curl command
+# in the README rather than committing it.
+docs/ft891_cat_reference.pdf
+
+.DS_Store

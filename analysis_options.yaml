@@ -1,0 +1,13 @@
+include: package:lints/recommended.yaml
+
+analyzer:
+  language:
+    strict-casts: true
+    strict-raw-types: true
+
+linter:
+  rules:
+    - prefer_final_locals
+    - require_trailing_commas
+    # avoid_print is inherited from recommended.yaml. Console output is allowed
+    # only under lib/src/cli/ and bin/, which opt out with ignore_for_file.
