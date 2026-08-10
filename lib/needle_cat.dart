@@ -16,5 +16,7 @@ export 'src/cat/transport.dart';
 export 'src/constants.dart';
 export 'src/dsp/audio_source.dart';
 export 'src/dsp/mock_source.dart';
+export 'src/dsp/noise_floor.dart';
 export 'src/dsp/process_pcm_source.dart';
 export 'src/dsp/spectrum.dart';
+export 'src/dsp/spectrum_isolate.dart';
