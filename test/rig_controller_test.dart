@@ -35,6 +35,13 @@ class FakeTransport implements CatTransport {
   int closeCount = 0;
   bool _open = false;
 
+  /// Number of subsequent [open] calls that should throw.
+  ///
+  /// Models the real failure: the CP2105 lives inside the radio, so powering
+  /// the radio off removes the device node entirely and reopening throws
+  /// rather than merely returning nothing.
+  int failOpensRemaining = 0;
+
   @override
   bool get isOpen => _open;
 
@@ -44,8 +51,12 @@ class FakeTransport implements CatTransport {
   @override
   Future<void> open() async {
     openCount++;
-    _open = true;
     if (!_clock.isRunning) _clock.start();
+    if (failOpensRemaining > 0) {
+      failOpensRemaining--;
+      throw const CatTransportException('device node is gone');
+    }
+    _open = true;
   }
 
   @override
@@ -274,6 +285,56 @@ void main() {
       expect(t.openCount, greaterThan(1), reason: 'should have reopened');
       expect(phases, contains(ConnectionPhase.degraded));
       expect(phases, contains(ConnectionPhase.connecting));
+      await t.dispose();
+    });
+
+    test('keeps retrying when the device node has vanished', () async {
+      // Powering the radio off removes the CP2105 from the USB bus, so the
+      // reopen throws. Nothing else can restart the controller: with the
+      // transport closed no command is sent, so no timeout fires, so nothing
+      // schedules another resync. Without an explicit retry it wedges here
+      // forever -- which is exactly what success criterion 3.3 forbids.
+      final t = _healthyRadio();
+      final c = RigController(
+        t,
+        commandTimeout: const Duration(milliseconds: 25),
+        reconnectBackoff: const Duration(milliseconds: 40),
+        slowPollPeriod: const Duration(milliseconds: 60),
+      );
+      await c.start();
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+
+      // Operator switches the radio off: it stops answering AND the device
+      // node disappears, so every reopen attempt throws.
+      t.blackHole.addAll([
+        kReadInfo,
+        kReadSMeter,
+        kReadMode,
+        kReadTxState,
+        kReadFilterWidth,
+        kReadNarrow,
+      ]);
+      t.failOpensRemaining = 3;
+      final opensAtOutage = t.openCount;
+
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      expect(
+        t.openCount,
+        greaterThan(opensAtOutage + 1),
+        reason: 'must keep retrying while the node is missing',
+      );
+
+      // Radio comes back: the node reappears and it answers again.
+      t.blackHole.clear();
+
+      await c.states
+          .firstWhere((s) => s.phase == ConnectionPhase.ready)
+          .timeout(
+            const Duration(seconds: 3),
+            onTimeout: () => fail('controller wedged after a failed reopen'),
+          );
+
+      await c.stop();
       await t.dispose();
     });
 

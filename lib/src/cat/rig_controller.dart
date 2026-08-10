@@ -92,6 +92,7 @@ class RigController {
   final List<Timer> _pollTimers = [];
   Timer? _timeoutTimer;
   Timer? _quietUntil;
+  Timer? _reopenTimer;
 
   _Pending? _inFlight;
   DateTime? _sentAt;
@@ -146,6 +147,7 @@ class RigController {
     _pollTimers.clear();
     _timeoutTimer?.cancel();
     _quietUntil?.cancel();
+    _reopenTimer?.cancel();
 
     _failAllPending();
     await _lineSub?.cancel();
@@ -417,6 +419,18 @@ class RigController {
     _completeInFlight(null);
   }
 
+  /// Queues another reconnect attempt after the backoff.
+  ///
+  /// Deliberately unbounded: a radio that is switched off should be picked up
+  /// whenever it comes back, however long that takes. Giving up after N tries
+  /// would mean an operator who took a coffee break returns to a dead display.
+  void _scheduleReopen() {
+    _reopenTimer?.cancel();
+    _reopenTimer = Timer(_reconnectBackoff, () {
+      if (_running) unawaited(_resync());
+    });
+  }
+
   /// Stops sending for the CAT TOT window after a rejection.
   void _goQuiet() {
     _quietUntil?.cancel();
@@ -460,8 +474,18 @@ class RigController {
       _emit(_current.copyWith(phase: ConnectionPhase.ready, connected: true));
       _log.info('reconnected');
     } on Object catch (e) {
-      _log.warning('reopen failed: $e');
+      // The device node is gone — on this hardware the CP2105 lives inside
+      // the radio, so powering it off removes the port entirely and reopening
+      // throws rather than merely going quiet.
+      //
+      // Nothing else can restart us from here: with the transport closed
+      // _drain sends nothing, so no timeout fires, so no further resync is
+      // ever scheduled. Without this explicit retry the controller wedges in
+      // `degraded` until the process is killed.
+      _log.warning('reopen failed: $e — retrying in '
+          '${_reconnectBackoff.inMilliseconds}ms');
       _emit(_current.copyWith(phase: ConnectionPhase.degraded));
+      _scheduleReopen();
     } finally {
       _resyncing = false;
     }

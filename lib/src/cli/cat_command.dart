@@ -158,7 +158,10 @@ class CatCommand extends Command<int> {
     var stop = false;
     final sigint = ProcessSignal.sigint.watch().listen((_) => stop = true);
     final started = DateTime.now();
-    final phases = <ConnectionPhase>{controller.current.phase};
+    // An ordered transition list, NOT a Set: a Set silently drops the return
+    // to `ready`, which is precisely the transition the power-cycle
+    // acceptance test exists to demonstrate.
+    final phases = <ConnectionPhase>[controller.current.phase];
 
     // In-place repainting only makes sense on a terminal. Redirected to a file
     // or a pipe, carriage returns do not overwrite anything, so the same line
@@ -168,7 +171,7 @@ class CatCommand extends Command<int> {
     var lastPrinted = '';
 
     void paint(RigState s) {
-      phases.add(s.phase);
+      if (phases.isEmpty || phases.last != s.phase) phases.add(s.phase);
       if (repaint) {
         stdout.write('\r\x1b[K${_format(s, controller)}');
         return;
@@ -205,17 +208,32 @@ class CatCommand extends Command<int> {
     stdout.writeln('  timeouts   ${controller.timeouts}');
     stdout.writeln('  rejections ${controller.rejections}');
     stdout.writeln('  resyncs    ${controller.resyncs}');
-    stdout.writeln('  phases     ${phases.map((p) => p.name).join(' -> ')}');
+    stdout.writeln('  phases     ${_collapse(phases)}');
 
     // Success criterion 3.2 is "zero desyncs and zero stuck states". Report a
     // verdict rather than leaving the operator to interpret the numbers.
     final clean = controller.desyncs == 0 && controller.responses > 0;
+    final recovered = controller.resyncs > 0 &&
+        controller.current.phase == ConnectionPhase.ready;
     stdout.writeln(
-      clean
-          ? '  VERDICT    clean — no desyncs'
-          : '  VERDICT    FAILED — ${controller.desyncs} desync(s)',
+      switch ((clean, recovered)) {
+        (false, _) => '  VERDICT    FAILED — ${controller.desyncs} desync(s)',
+        (true, true) =>
+          '  VERDICT    clean — no desyncs, recovered from '
+              '${controller.resyncs} outage(s)',
+        (true, false) => '  VERDICT    clean — no desyncs',
+      },
     );
     return clean ? 0 : 1;
+  }
+
+  /// Renders the phase walk, collapsing long runs so a session with many
+  /// outages stays readable while still showing every transition.
+  String _collapse(List<ConnectionPhase> phases) {
+    if (phases.length <= 8) return phases.map((p) => p.name).join(' -> ');
+    final head = phases.take(3).map((p) => p.name).join(' -> ');
+    final tail = phases.skip(phases.length - 3).map((p) => p.name).join(' -> ');
+    return '$head -> ... (${phases.length - 6} more) -> $tail';
   }
 
   /// Timing-free rendering, so a redirected run only prints when something
