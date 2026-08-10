@@ -23,6 +23,10 @@ class CatCommand extends Command<int> {
       ..addOption('send', abbr: 's', help: 'Send one command (include the trailing ";") and print the answer.')
       ..addOption('record', abbr: 'r', help: 'Poll the radio and write a transcript to this file.')
       ..addOption(
+        'seconds',
+        help: 'Stop recording after this many seconds instead of waiting for Ctrl-C.',
+      )
+      ..addOption(
         'timeout',
         defaultsTo: '${kCommandTimeout.inMilliseconds}',
         help: 'Milliseconds to wait for a response.',
@@ -132,22 +136,40 @@ class CatCommand extends Command<int> {
       kReadFilterWidth,
     ];
 
-    stdout.writeln('Recording. Spin the VFO knob. Ctrl-C to stop.');
+    final seconds = int.tryParse(argResults!.option('seconds') ?? '');
+    final deadline = seconds == null
+        ? null
+        : DateTime.now().add(Duration(seconds: seconds));
+
+    stdout.writeln(
+      seconds == null
+          ? 'Recording. Spin the VFO knob. Ctrl-C to stop.'
+          : 'Recording for ${seconds}s. Spin the VFO knob.',
+    );
 
     var stop = false;
     final sigint = ProcessSignal.sigint.watch().listen((_) => stop = true);
-    var lines = 0;
-    final sub = transport.lines.listen((_) => lines++);
+    var responses = 0;
+    var rejections = 0;
+    final sub = transport.lines.listen((line) {
+      responses++;
+      if (line == '?') rejections++;
+    });
 
     var i = 0;
-    while (!stop) {
+    while (!stop && (deadline == null || DateTime.now().isBefore(deadline))) {
       transport.send(poll[i++ % poll.length]);
-      await Future<void>.delayed(kFastPollPeriod);
+      // A rejection costs a full CAT TOT of silence, so back off rather than
+      // spending the next second shouting at a radio that is not listening.
+      await Future<void>.delayed(
+        rejections > 0 && responses > 0 ? kRejectionRecovery : kFastPollPeriod,
+      );
+      if (rejections > 0) rejections = 0;
     }
 
     await sub.cancel();
     await sigint.cancel();
-    stdout.writeln('\nCaptured $lines responses.');
+    stdout.writeln('Captured $responses responses.');
     return 0;
   }
 }
