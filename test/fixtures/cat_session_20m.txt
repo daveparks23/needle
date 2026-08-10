@@ -1,0 +1,43 @@
+# needle CAT transcript v1
+#
+# Hand-written seed for MockTransport, using response shapes captured verbatim
+# from a real FT-891 on 20m. Task 6 replaces this with a genuine
+# RecordingTransport capture taken while spinning the VFO knob.
+#
+# The SM0; series deliberately includes the bogus 000 readings the radio emits
+# during VFO motion, so --mock exercises SMeterDebouncer rather than pretending
+# the quirk does not exist.
+0 TX ID;
+11 RX ID0650;
+20 TX IF;
+36 RX IF001014074000+000000200000;
+50 TX SM0;
+61 RX SM0047;
+70 TX SM0;
+81 RX SM0052;
+90 TX SM0;
+101 RX SM0000;
+110 TX SM0;
+121 RX SM0061;
+130 TX SM0;
+141 RX SM0000;
+150 TX SM0;
+161 RX SM0000;
+170 TX SM0;
+181 RX SM0000;
+190 TX SM0;
+201 RX SM0038;
+210 TX MD0;
+221 RX MD02;
+230 TX TX;
+241 RX TX0;
+250 TX SH0;
+262 RX SH0014;
+270 TX NA0;
+281 RX NA00;
+290 TX FA;
+302 RX FA014074000;
+310 TX IF;
+326 RX IF001014074500+000000200000;
+340 TX FA;
+352 RX FA014074500;

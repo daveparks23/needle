@@ -7,6 +7,9 @@
 library;
 
 export 'src/cat/codec.dart';
+export 'src/cat/mock_transport.dart';
+export 'src/cat/recording_transport.dart';
 export 'src/cat/commands.dart';
 export 'src/cat/rig_state.dart';
+export 'src/cat/transport.dart';
 export 'src/constants.dart';
