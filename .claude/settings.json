@@ -14,7 +14,14 @@
       "Bash(ffmpeg -hide_banner -f avfoundation -list_devices true -i \"\")",
       "Bash(perl -pe 's/\\\\x1b\\\\[[0-9;]*[a-zA-Z]//g' /tmp/scope.txt)",
       "Bash(perl -ne ' *)",
-      "Bash(perl -pe 's/\\\\x1b\\\\[[0-9;]*[a-zA-Z]//g' /tmp/scope_real.txt)"
+      "Bash(perl -pe 's/\\\\x1b\\\\[[0-9;]*[a-zA-Z]//g' /tmp/scope_real.txt)",
+      "Bash(cat ~/development/davesdotrepo/shell/conf.d/10-aliases.zsh)",
+      "Read(//Users/daveparks/development/davesdotrepo/shell/conf.d/**)",
+      "Read(//Users/daveparks/development/davesdotrepo/**)"
+    ],
+    "additionalDirectories": [
+      "/Users/daveparks/development/davesdotrepo/shell/conf.d",
+      "/Users/daveparks/development/davesdotrepo"
     ]
   }
 }
