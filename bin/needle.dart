@@ -10,6 +10,7 @@ import 'package:needle_cat/src/cli/cat_command.dart';
 import 'package:needle_cat/src/cli/devices_command.dart';
 import 'package:needle_cat/src/cli/ports_command.dart';
 import 'package:needle_cat/src/cli/scope_command.dart';
+import 'package:needle_cat/src/cli/tx_command.dart';
 
 Future<void> main(List<String> args) async {
   final runner =
@@ -32,7 +33,8 @@ Future<void> main(List<String> args) async {
     ..addCommand(DevicesCommand())
     ..addCommand(CatCommand())
     ..addCommand(AudioCommand())
-    ..addCommand(ScopeCommand());
+    ..addCommand(ScopeCommand())
+    ..addCommand(TxCommand());
 
   try {
     final results = runner.parse(args);
