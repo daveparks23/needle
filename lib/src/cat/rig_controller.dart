@@ -128,8 +128,9 @@ class RigController {
     _emit(_current.copyWith(phase: ConnectionPhase.connecting));
     await _transport.open();
     _lineSub = _transport.lines.listen(_onLine);
+    // Connected, not ready: `ready` is earned by an actual answer.
     _emit(
-      _current.copyWith(phase: ConnectionPhase.ready, connected: true),
+      _current.copyWith(phase: ConnectionPhase.connecting, connected: true),
     );
 
     _schedulePolls();
@@ -306,6 +307,16 @@ class RigController {
 
     responses++;
     _consecutiveTimeouts = 0;
+
+    // The radio answered, so the link is genuinely healthy. This is the only
+    // place that may declare `ready`.
+    if (_current.phase != ConnectionPhase.ready) {
+      _log.info('radio answering — ready');
+      _emit(
+        _current.copyWith(phase: ConnectionPhase.ready, connected: true),
+      );
+    }
+
     lastRoundTrip = _sentAt == null
         ? null
         : DateTime.now().difference(_sentAt!);
@@ -471,8 +482,15 @@ class RigController {
       // A command that only failed because the radio was away deserves
       // another chance; a genuinely unsupported one will degrade again.
       degradedCommands.clear();
-      _emit(_current.copyWith(phase: ConnectionPhase.ready, connected: true));
-      _log.info('reconnected');
+      // Stay in `connecting` until something actually answers. A port that
+      // opens proves the USB bridge is present, not that the radio is
+      // switched on — the CP2105 is powered by the radio but the node can
+      // linger. Promoting to `ready` here made a rig that was off for 30
+      // seconds display as healthy for the whole outage.
+      _emit(
+        _current.copyWith(phase: ConnectionPhase.connecting, connected: true),
+      );
+      _log.info('port reopened — waiting for the radio to answer');
     } on Object catch (e) {
       // The device node is gone — on this hardware the CP2105 lives inside
       // the radio, so powering it off removes the port entirely and reopening

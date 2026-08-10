@@ -338,6 +338,53 @@ void main() {
       await t.dispose();
     });
 
+    test('reopening the port alone does not count as ready', () async {
+      // A port that opens proves the USB bridge is there, not that the radio
+      // is switched on. Claiming `ready` on reopen made a rig that was off
+      // for 30 seconds display as healthy-but-stale for the whole outage.
+      // `ready` must mean "the radio is answering".
+      final t = _healthyRadio();
+      final c = RigController(
+        t,
+        commandTimeout: const Duration(milliseconds: 25),
+        reconnectBackoff: const Duration(milliseconds: 30),
+        slowPollPeriod: const Duration(milliseconds: 60),
+      );
+      await c.start();
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+
+      // Radio switched off, but the device node survives, so every reopen
+      // succeeds while nothing ever answers.
+      t.blackHole.addAll([
+        kReadInfo,
+        kReadSMeter,
+        kReadMode,
+        kReadTxState,
+        kReadFilterWidth,
+        kReadNarrow,
+      ]);
+
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      expect(t.openCount, greaterThan(1), reason: 'should have reopened');
+      expect(
+        c.current.phase,
+        isNot(ConnectionPhase.ready),
+        reason: 'port is open but the radio is silent',
+      );
+
+      // Radio comes back.
+      t.blackHole.clear();
+      await c.states
+          .firstWhere((s) => s.phase == ConnectionPhase.ready)
+          .timeout(
+            const Duration(seconds: 2),
+            onTimeout: () => fail('never returned to ready once answering'),
+          );
+
+      await c.stop();
+      await t.dispose();
+    });
+
     test('recovers to ready when the radio answers again', () async {
       final t = _healthyRadio()..blackHole.add(kReadInfo);
       final c = RigController(

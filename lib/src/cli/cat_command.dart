@@ -213,8 +213,11 @@ class CatCommand extends Command<int> {
     // Success criterion 3.2 is "zero desyncs and zero stuck states". Report a
     // verdict rather than leaving the operator to interpret the numbers.
     final clean = controller.desyncs == 0 && controller.responses > 0;
+    // phases.last, not controller.current: stop() has already set the phase
+    // to `disconnected`, so reading it here always reported "not recovered".
     final recovered = controller.resyncs > 0 &&
-        controller.current.phase == ConnectionPhase.ready;
+        phases.isNotEmpty &&
+        phases.last == ConnectionPhase.ready;
     stdout.writeln(
       switch ((clean, recovered)) {
         (false, _) => '  VERDICT    FAILED — ${controller.desyncs} desync(s)',
