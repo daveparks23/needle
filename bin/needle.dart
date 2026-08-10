@@ -5,7 +5,9 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 import 'package:logging/logging.dart';
+import 'package:needle_cat/src/cli/audio_command.dart';
 import 'package:needle_cat/src/cli/cat_command.dart';
+import 'package:needle_cat/src/cli/devices_command.dart';
 import 'package:needle_cat/src/cli/ports_command.dart';
 
 Future<void> main(List<String> args) async {
@@ -26,7 +28,9 @@ Future<void> main(List<String> args) async {
 
   runner
     ..addCommand(PortsCommand())
-    ..addCommand(CatCommand());
+    ..addCommand(DevicesCommand())
+    ..addCommand(CatCommand())
+    ..addCommand(AudioCommand());
 
   try {
     final results = runner.parse(args);

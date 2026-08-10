@@ -34,6 +34,13 @@ class SpectrumAnalyzer {
     _binWidthHz = sampleRate / fftSize;
     _displayBinCount = (displayMaxHz / _binWidthHz).floor() + 1;
     _scratch = Float64List(_displayBinCount);
+
+    // FFT magnitudes scale with the transform length, so raw dB values are
+    // large and positive and mean nothing to an operator. A Hann window has a
+    // coherent gain of 0.5, so a full-scale sine peaks at amplitude * N/4;
+    // dividing by that puts the scale in dBFS, where 0 dB is clipping and the
+    // DATA OUT LEVEL menu can be tuned against a real number.
+    _magnitudeScale = 4.0 / fftSize;
   }
 
   final int fftSize;
@@ -43,6 +50,7 @@ class SpectrumAnalyzer {
 
   final STFT _stft;
   late final double _binWidthHz;
+  late final double _magnitudeScale;
   late final int _displayBinCount;
 
   /// Reused across frames; callers that keep a frame must copy it.
@@ -80,7 +88,8 @@ class SpectrumAnalyzer {
     for (var i = 0; i < limit; i++) {
       // 20*log10(mag). The epsilon keeps digital silence finite rather than
       // negative infinity, which would poison the colour mapping downstream.
-      _scratch[i] = 20 * (math.log(mags[i] + kLogEpsilon) / math.ln10);
+      _scratch[i] =
+          20 * (math.log(mags[i] * _magnitudeScale + kLogEpsilon) / math.ln10);
     }
     onFrame(_scratch);
   }

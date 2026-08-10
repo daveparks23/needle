@@ -34,12 +34,21 @@ void main() {
 
   test('only the CLI layer writes to the console', () {
     // Spec 10: no bare print outside cli/. bin/ and cli/ opt out explicitly.
+    // Must not match `process.stdout.listen(...)`, which reads a child
+    // process's output, or a method named `_printPeak`. Only the bare
+    // top-level `print(` and writes to the global `stdout`/`stderr` count.
+    final consoleWrite = RegExp(
+      r'(?<![.\w])(print\(|stdout\.(write|add)|stderr\.(write|add))',
+    );
     for (final f in Directory('lib/src').listSync(recursive: true).whereType<File>()) {
       if (!f.path.endsWith('.dart')) continue;
       if (f.path.contains('/cli/')) continue;
-      final src = f.readAsStringSync();
-      expect(src, isNot(contains('print(')), reason: '${f.path} prints');
-      expect(src, isNot(contains('stdout.')), reason: '${f.path} writes stdout');
+      final match = consoleWrite.firstMatch(f.readAsStringSync());
+      expect(
+        match,
+        isNull,
+        reason: '${f.path} writes to the console via "${match?.group(0)}"',
+      );
     }
   });
 

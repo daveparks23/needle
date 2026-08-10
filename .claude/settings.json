@@ -10,7 +10,8 @@
       "Bash(LIBSERIALPORT_PATH=/opt/homebrew/lib/libserialport.dylib dart run bin/_dylib_check.dart)",
       "Bash(LIBSERIALPORT_PATH=/opt/homebrew/lib dart run bin/_dylib_check.dart)",
       "Bash(export LIBSERIALPORT_PATH=/opt/homebrew/lib/libserialport.dylib)",
-      "Bash(time dart run bin/needle.dart ports --probe)"
+      "Bash(time dart run bin/needle.dart ports --probe)",
+      "Bash(ffmpeg -hide_banner -f avfoundation -list_devices true -i \"\")"
     ]
   }
 }

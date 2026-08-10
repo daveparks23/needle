@@ -104,6 +104,29 @@ void main() {
       expect(frame.every((v) => v.isFinite), isTrue);
     });
 
+    test('the scale is dBFS, so 0 dB means full scale', () {
+      // Without normalising by the transform length, magnitudes grow with FFT
+      // size and read as large positive numbers that mean nothing. Calibrated
+      // dBFS is what lets an operator set DATA OUT LEVEL (menu 08-11) to a
+      // real target instead of guessing.
+      //
+      // Tolerance covers Hann scalloping loss: a tone between bin centres
+      // reads up to ~1.4 dB low, and 1000 Hz sits at bin 170.67.
+      for (final amplitude in [1.0, 0.5, 0.1]) {
+        final a = SpectrumAnalyzer();
+        final pcm = Float64List.fromList(
+          _sine(1000, kFftSize * 2).map((v) => v * amplitude).toList(),
+        );
+        final frame = _firstFrame(pcm, analyzer: a);
+        final expected = 20 * math.log(amplitude) / math.ln10;
+        expect(
+          frame[_argmax(frame)],
+          closeTo(expected, 1.5),
+          reason: 'amplitude $amplitude should read near $expected dBFS',
+        );
+      }
+    });
+
     test('a louder tone reads higher in dB', () {
       final quiet = _sine(1000, kFftSize * 2);
       final loud = Float64List.fromList(quiet.map((v) => v * 10).toList());
