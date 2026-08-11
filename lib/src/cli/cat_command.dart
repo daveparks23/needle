@@ -243,7 +243,8 @@ class CatCommand extends Command<int> {
   String _formatStable(RigState s) {
     final freq = s.vfoAHz == null ? '---' : (s.vfoAHz! / 1e6).toStringAsFixed(6);
     final meter = s.sMeterRaw == null ? '---' : '${s.sMeterRaw}';
-    return '$freq MHz  ${s.mode.name.toUpperCase()}  S:$meter  '
+    final bw = s.filterWidthHz == null ? '' : '  BW:${s.filterWidthHz}Hz';
+    return '$freq MHz  ${s.mode.name.toUpperCase()}  S:$meter$bw  '
         '${s.phase.name}${s.transmitting ? ' [TX]' : ''}';
   }
 
@@ -258,9 +259,11 @@ class CatCommand extends Command<int> {
     final rtt = c.lastRoundTrip == null
         ? '--'
         : '${c.lastRoundTrip!.inMilliseconds}';
+    final width = s.filterWidthHz != null ? '  BW:${s.filterWidthHz}Hz' : '';
     final stale = s.isStale(s.vfoUpdated, const Duration(seconds: 2)) ? ' *stale*' : '';
     final tx = s.transmitting ? ' [TX]' : '';
-    return '$freq MHz  $mode  S:$meter  ${rtt}ms  ${s.phase.name}$tx$stale';
+    return '$freq MHz  $mode  S:$meter$width  ${rtt}ms  '
+        '${s.phase.name}$tx$stale';
   }
 
   Future<int> _record(CatTransport transport) async {

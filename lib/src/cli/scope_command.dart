@@ -221,10 +221,14 @@ class ScopeCommand extends Command<int> {
         : (s.vfoAHz! / 1e6).toStringAsFixed(6);
     final mode = s.mode == RigMode.unknown ? '---' : s.mode.name.toUpperCase();
     final meter = s.sMeterRaw == null ? '---' : '${s.sMeterRaw}';
-    final width = s.filterWidthIndex == null ? '--' : '${s.filterWidthIndex}';
+    final width = s.filterWidthHz != null
+        ? '${s.filterWidthHz}Hz'
+        : s.filterWidthIndex == null
+        ? '--'
+        : 'idx${s.filterWidthIndex}';
     final tx = s.transmitting ? '  [TX — blanked]' : '';
     final link = c == null ? catStatus : s.phase.name;
-    return '$freq MHz  $mode  S:$meter  SH:$width  '
+    return '$freq MHz  $mode  S:$meter  BW:$width  '
         'floor ${floor.floorDb.toStringAsFixed(0)}dB  '
         'range ${rangeDb.toStringAsFixed(0)}dB  $link$tx';
   }

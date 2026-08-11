@@ -176,6 +176,12 @@ read pump instead.
 **`ready` must mean the radio is answering, not that the port opened.** The
 CP2105 node can survive a power cycle, so a successful reopen proves nothing.
 
+**`SH` returns a table index, not a bandwidth.** The same index means
+different things per mode: 14 is 2400 Hz in wide SSB but 1700 Hz in wide CW,
+and narrow SSB does not offer it at all. The table is transcribed in
+`lib/src/cat/filter_widths.dart`; gaps the book prints as dashes are null
+rather than guessed.
+
 **The S-meter zero glitch is auto-info-specific.** Spec §5.7 warns of bogus
 `SM0000` readings during knob motion; a real 60-second capture under hard
 spinning produced **zero** in 118 reads. Re-reading the spec, it describes them

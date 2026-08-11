@@ -8,6 +8,7 @@ import 'package:meta/meta.dart';
 
 import '../constants.dart';
 import 'commands.dart';
+import 'filter_widths.dart' as filters;
 
 /// Where the link to the radio currently stands.
 enum ConnectionPhase {
@@ -92,8 +93,9 @@ class RigState {
   /// Calibrated S-units. Null until a calibration table exists.
   final double? sMeterSUnits;
 
-  /// `SH` P3 is a table index into the reference book's bandwidth table, not a
-  /// width in Hz. Stored raw; the Hz lookup comes later.
+  /// `SH` P3 as the radio reported it: a table index, not a width in Hz.
+  /// Kept raw alongside the derived [filterWidthHz] so the interpreted value
+  /// never hides what actually came off the wire.
   final int? filterWidthIndex;
 
   final bool? narrowEnabled;
@@ -104,6 +106,22 @@ class RigState {
   final DateTime? vfoUpdated;
   final DateTime? metersUpdated;
   final DateTime? controlsUpdated;
+
+  /// Filter bandwidth in Hz, resolved from [filterWidthIndex] against the
+  /// current mode and narrow setting.
+  ///
+  /// Null when the index is unknown, the mode has no filter table (AM/FM), or
+  /// that index is not offered for this combination. Derived rather than
+  /// stored so it can never disagree with the raw index it came from.
+  int? get filterWidthHz {
+    final index = filterWidthIndex;
+    if (index == null) return null;
+    return filters.filterWidthHz(
+      mode: mode,
+      narrow: narrowEnabled ?? false,
+      index: index,
+    );
+  }
 
   /// True when [updated] is null or older than [maxAge].
   bool isStale(DateTime? updated, Duration maxAge) {
