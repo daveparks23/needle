@@ -1,5 +1,7 @@
 # needle
 
+[![CI](https://github.com/daveparks23/needle/actions/workflows/ci.yaml/badge.svg)](https://github.com/daveparks23/needle/actions/workflows/ci.yaml)
+
 Pure-Dart CAT control and real-time audio spectrum tooling for the **Yaesu FT-891**.
 
 A proof of concept for a Flutter touchscreen front panel. It exists to prove two
