@@ -190,6 +190,30 @@ remains as insurance for `--auto-info`.
 
 ---
 
+## Platform support
+
+macOS is the only host this has actually run on. Linux and Windows capture
+backends exist and are written from the ffmpeg/ALSA documentation, but have
+**never been executed** — `needle devices` says so out loud when you are on
+one. Everything host-specific lives in `lib/src/dsp/capture_backend.dart`;
+adding a platform means adding one class there and nothing else.
+
+| Host | CAT | Audio | Status |
+|---|---|---|---|
+| macOS | libserialport (needs `LIBSERIALPORT_PATH`) | ffmpeg + avfoundation, device by index | verified on hardware |
+| Linux / Pi | libserialport (on the default search path) | arecord, device as `hw:card,dev` | untested |
+| Windows | libserialport (`serialport.dll`) | ffmpeg + dshow, device by **name** | untested |
+| Android | `usb_serial` replaces libserialport | plugin-based | not attempted; the `CatTransport` and `PcmSource` interfaces exist for it |
+
+### S-meter calibration
+
+`sMeterSUnits` is deliberately null. The CAT reference book documents `SM` as
+nothing more than `P2 000 - 255` — no S-unit mapping, no dBµV, no curve — and a
+guessed calibration is worse than an honest absence. Deriving one needs a
+signal generator: step known levels into the antenna port, record the raw `SM`
+value at each, and fit the breakpoints. `sMeterRaw` carries the number the
+radio actually reported in the meantime.
+
 ## Development
 
 ```bash

@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 
 import '../dsp/audio_source.dart';
+import '../dsp/capture_backend.dart';
 import '../dsp/process_pcm_source.dart';
 
 /// Lists audio capture devices and flags the likely Digirig.
@@ -24,6 +25,18 @@ class DevicesCommand extends Command<int> {
     } on PcmSourceException catch (e) {
       stderr.writeln(e);
       return 69;
+    }
+
+    // Say so rather than let someone debug a path nobody has ever run as if
+    // it were known-good.
+    final backend = CaptureBackend.forHost();
+    if (!backend.verified) {
+      stdout.writeln(
+        'Note: audio capture on ${Platform.operatingSystem} is written from '
+        'documentation and has never been run. If it works, please say so; if '
+        'it does not, the whole seam is in lib/src/dsp/capture_backend.dart.',
+      );
+      stdout.writeln();
     }
 
     if (devices.isEmpty) {

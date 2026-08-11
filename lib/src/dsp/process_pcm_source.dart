@@ -14,133 +14,24 @@ import 'package:logging/logging.dart';
 
 import '../constants.dart';
 import 'audio_source.dart';
+import 'capture_backend.dart';
 
 final Logger _log = Logger('needle.audio');
 
-/// An input the operator can capture from.
-class AudioDevice {
-  const AudioDevice({
-    required this.id,
-    required this.name,
-    required this.likelyDigirig,
-  });
-
-  /// What to pass to `--device`.
-  final String id;
-
-  final String name;
-
-  /// True when the name matches the USB codec a Digirig presents.
-  final bool likelyDigirig;
-
-  @override
-  String toString() => '$id  $name';
-}
-
-/// Enumerates capture devices for the host platform.
-Future<List<AudioDevice>> listInputDevices() async {
-  if (Platform.isMacOS) return _listMacOsDevices();
-  if (Platform.isLinux) return _listLinuxDevices();
-  throw PcmSourceException(
-    'audio device discovery is not implemented for ${Platform.operatingSystem}',
-  );
-}
-
-/// The Digirig presents a generic C-Media codec, so there is no "Digirig" in
-/// the name to match on. These are the strings it actually reports.
-bool _looksLikeDigirig(String name) {
-  final n = name.toLowerCase();
-  return n.contains('usb audio') || n.contains('c-media') || n.contains('digirig');
-}
-
-Future<List<AudioDevice>> _listMacOsDevices() async {
-  final ProcessResult result;
-  try {
-    result = await Process.run('ffmpeg', [
-      '-hide_banner',
-      '-f',
-      'avfoundation',
-      '-list_devices',
-      'true',
-      '-i',
-      '',
-    ]);
-  } on ProcessException {
-    throw const PcmSourceException(
-      'ffmpeg is not installed',
-      remedy: 'brew install ffmpeg',
-    );
-  }
-
-  // ffmpeg writes the device list to stderr and then exits non-zero, because
-  // the empty input it was given cannot be opened. That is expected.
-  final devices = <AudioDevice>[];
-  var inAudioSection = false;
-  final entry = RegExp(r'\[(\d+)\]\s+(.+?)\s*$');
-
-  for (final line in const LineSplitter().convert(result.stderr.toString())) {
-    if (line.contains('AVFoundation video devices:')) {
-      inAudioSection = false;
-      continue;
-    }
-    if (line.contains('AVFoundation audio devices:')) {
-      inAudioSection = true;
-      continue;
-    }
-    if (!inAudioSection) continue;
-
-    // Strip the "[AVFoundation indev @ 0x...]" prefix before matching, or its
-    // pointer would be read as a device index.
-    final stripped = line.replaceFirst(RegExp(r'^\[AVFoundation[^\]]*\]\s*'), '');
-    final match = entry.firstMatch(stripped);
-    if (match == null) continue;
-
-    final name = match.group(2)!;
-    devices.add(
-      AudioDevice(
-        id: match.group(1)!,
-        name: name,
-        likelyDigirig: _looksLikeDigirig(name),
-      ),
-    );
-  }
-  return devices;
-}
-
-Future<List<AudioDevice>> _listLinuxDevices() async {
-  final ProcessResult result;
-  try {
-    result = await Process.run('arecord', ['-l']);
-  } on ProcessException {
-    throw const PcmSourceException(
-      'arecord is not installed',
-      remedy: 'sudo apt install alsa-utils',
-    );
-  }
-
-  final devices = <AudioDevice>[];
-  final entry = RegExp(r'^card (\d+): (\S+).*?device (\d+): (.+?)\s*\[');
-  for (final line in const LineSplitter().convert(result.stdout.toString())) {
-    final match = entry.firstMatch(line);
-    if (match == null) continue;
-    final name = '${match.group(2)} ${match.group(4)}';
-    devices.add(
-      AudioDevice(
-        id: 'hw:${match.group(1)},${match.group(3)}',
-        name: name,
-        likelyDigirig: _looksLikeDigirig(name),
-      ),
-    );
-  }
-  return devices;
-}
+/// Enumerates capture devices for the running host.
+Future<List<AudioDevice>> listInputDevices() =>
+    CaptureBackend.forHost().listDevices();
 
 /// Captures PCM from a child process reading raw S16_LE.
 class ProcessPcmSource implements PcmSource {
   ProcessPcmSource({
     required this.device,
     this.sampleRate = kSampleRate,
-  });
+    CaptureBackend? backend,
+  }) : backend = backend ?? CaptureBackend.forHost();
+
+  /// Host-specific capture. Injectable so tests can drive a fake.
+  final CaptureBackend backend;
 
   /// Platform device selector: an avfoundation index on macOS, `hw:c,d` on
   /// Linux.
@@ -178,37 +69,7 @@ class ProcessPcmSource implements PcmSource {
   Stream<Float64List> get samples => _controller.stream;
 
   /// The capture command for this platform.
-  List<String> get command => Platform.isMacOS
-      ? [
-          'ffmpeg',
-          '-hide_banner',
-          '-loglevel',
-          'error',
-          '-f',
-          'avfoundation',
-          '-i',
-          ':$device',
-          '-ar',
-          '$sampleRate',
-          '-ac',
-          '1',
-          '-f',
-          's16le',
-          '-',
-        ]
-      : [
-          'arecord',
-          '-D',
-          device,
-          '-f',
-          'S16_LE',
-          '-r',
-          '$sampleRate',
-          '-c',
-          '1',
-          '-t',
-          'raw',
-        ];
+  List<String> get command => backend.captureCommand(device, sampleRate);
 
   @override
   Future<void> start() async {
@@ -223,9 +84,7 @@ class ProcessPcmSource implements PcmSource {
     } on ProcessException catch (e) {
       throw PcmSourceException(
         'could not start ${argv.first}: ${e.message}',
-        remedy: Platform.isMacOS
-            ? 'brew install ffmpeg'
-            : 'sudo apt install alsa-utils',
+        remedy: backend.installHint,
       );
     }
     _process = process;
