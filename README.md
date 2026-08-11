@@ -13,6 +13,14 @@ Then it puts them together in a terminal waterfall.
 `lib/` is **Flutter-free by design** and enforced by a test. The eventual Flutter
 app consumes this package unchanged via a path dependency.
 
+![FT8 on 20m in the terminal waterfall](docs/waterfall.png)
+
+*20m FT8 received on an FT-891 through a Digirig, rendered with 24-bit colour
+half-block cells. Each vertical streak is one station; the quiet band across the
+middle is the gap between FT8's 15-second transmit cycles. Captured audio-only —
+run with `--port` as well and the header carries live frequency, mode, S-meter
+and filter width.*
+
 ---
 
 ## Status
@@ -23,7 +31,7 @@ app consumes this package unchanged via a path dependency.
 | §3.2 `cat --watch` survives 60 s of knob spinning | pass — 1164 responses, **0 desyncs, 0 timeouts, 0 resyncs** |
 | §3.3 recovers from a mid-run power cycle | pass — `ready → degraded → connecting → ready`, 0 desyncs |
 | §3.4 `audio --peak` tracks a real signal | capture verified; needs a tune-across-carrier check |
-| §3.5 FT8 visible as discrete lines on 14.074 | needs an active band period |
+| §3.5 FT8 visible as discrete lines on 14.074 | **pass** — see the screenshot above |
 | §3.6 `scope --mock` runs with no hardware | pass — 12% of columns persistently bright, discrete lines |
 | §3.7 clean analysis, tests, malformed-input coverage | pass — 179 tests, `dart analyze --fatal-infos` clean |
 
