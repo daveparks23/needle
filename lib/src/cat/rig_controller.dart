@@ -120,6 +120,10 @@ class RigController {
   int resyncs = 0;
   int responses = 0;
 
+  /// Responses that arrived with nothing in flight — what auto-information
+  /// mode produces, and what a desynced link also produces.
+  int unsolicited = 0;
+
   /// Opens the transport and starts polling.
   Future<void> start() async {
     if (_running) return;
@@ -273,6 +277,7 @@ class RigController {
       // Nothing outstanding: an echo of a command we already gave up on.
       // Dropping it here is what stops one late answer desyncing everything
       // that follows.
+      unsolicited++;
       _log.fine('unsolicited response dropped: "$line"');
       return;
     }

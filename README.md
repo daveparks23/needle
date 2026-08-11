@@ -182,6 +182,23 @@ and narrow SSB does not offer it at all. The table is transcribed in
 `lib/src/cat/filter_widths.dart`; gaps the book prints as dashes are null
 rather than guessed.
 
+**Auto-information mode makes things worse, measured.** Spec §5.6 asks whether
+`AI1;` reduces bus load and says to keep polling until AI is proven. It is now
+disproven for this design. Twenty seconds on the same radio, back to back:
+
+| | responses | desyncs | timeouts | unsolicited |
+|---|---|---|---|---|
+| polling | 390 | 0 | 0 | 0 |
+| `--auto-info` | 375 | 7 | 4 | 54 |
+
+The reason is structural rather than a bug: this controller keeps exactly one
+command in flight and matches answers by prefix, so a pushed update landing
+mid-exchange either completes the wrong request or leaves the real answer to
+time out. Benefiting from AI needs a controller built around pushed state as
+first-class input, which is a redesign and not a flag. The flag stays because
+the evidence is worth keeping, and it now restores `AI0;` on exit — AI persists
+until power-off and would otherwise confuse the next program you open.
+
 **The S-meter zero glitch is auto-info-specific.** Spec §5.7 warns of bogus
 `SM0000` readings during knob motion; a real 60-second capture under hard
 spinning produced **zero** in 118 reads. Re-reading the spec, it describes them

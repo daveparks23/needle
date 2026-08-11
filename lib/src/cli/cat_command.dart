@@ -27,8 +27,11 @@ class CatCommand extends Command<int> {
       ..addFlag(
         'auto-info',
         negatable: false,
-        help: 'Experimental: ask the radio to push changes (AI1) and poll less. '
-            'Polling is the proven path and stays the default.',
+        help: 'MEASURED WORSE, kept for evidence. AI mode does not reduce bus '
+            'load with a request/response controller: over 20s it produced 54 '
+            'unsolicited messages, 7 desyncs and 4 timeouts, against 0/0/0 for '
+            'polling. Benefiting from AI needs a controller redesigned around '
+            'pushed state, not a flag. AI is restored to off on exit.',
       )
       ..addOption('send', abbr: 's', help: 'Send one command (include the trailing ";") and print the answer.')
       ..addOption('record', abbr: 'r', help: 'Poll the radio and write a transcript to this file.')
@@ -147,9 +150,10 @@ class CatCommand extends Command<int> {
     final controller = RigController(transport);
     await controller.start();
 
-    if (argResults!.flag('auto-info')) {
-      // Spec 5.6: polling is the baseline and stays the default. AI is
-      // opt-in and unproven on this model.
+    // Spec 5.6: polling is the baseline and stays the default. AI is opt-in
+    // and unproven on this model.
+    final autoInfo = argResults!.flag('auto-info');
+    if (autoInfo) {
       await controller.request(setAutoInformation(enabled: true));
       stdout.writeln('Auto-information enabled (experimental).');
     }
@@ -194,6 +198,13 @@ class CatCommand extends Command<int> {
       }
     }
 
+    // Leave the radio as we found it. AI persists until power-off, and a rig
+    // left pushing unsolicited traffic will confuse the next program the
+    // operator opens.
+    if (autoInfo) {
+      await controller.request(setAutoInformation(enabled: false));
+    }
+
     await sub.cancel();
     await sigint.cancel();
     await controller.stop();
@@ -207,6 +218,7 @@ class CatCommand extends Command<int> {
     stdout.writeln('  timeouts   ${controller.timeouts}');
     stdout.writeln('  rejections ${controller.rejections}');
     stdout.writeln('  resyncs    ${controller.resyncs}');
+    stdout.writeln('  unsolicited ${controller.unsolicited}');
     stdout.writeln('  phases     ${_collapse(phases)}');
 
     // Success criterion 3.2 is "zero desyncs and zero stuck states". Report a
