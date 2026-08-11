@@ -112,12 +112,17 @@ class ScopeCommand extends Command<int> {
       return 69;
     }
 
+    // Distinguish "no --port given" from "--port given but it failed": the
+    // startup error scrolls away within seconds, so the persistent header has
+    // to carry the reason.
+    var catStatus = port == null && !mock ? 'no CAT' : '';
     try {
       await controller?.start();
     } on CatTransportException catch (e) {
       stderr.writeln(e);
       stderr.writeln('Continuing without CAT.');
       controller = null;
+      catStatus = 'CAT FAILED';
     }
 
     // ---- wiring ----
@@ -143,15 +148,24 @@ class ScopeCommand extends Command<int> {
       if (pending.length > 2) pending.removeAt(0);
     });
 
-    final audioSub = source.samples.listen(worker.feed);
+    var stop = false;
+    final sigint = ProcessSignal.sigint.watch().listen((_) => stop = true);
+
+    // An audio stream error must never escape as an unhandled exception:
+    // the capture child can die at any moment, including on Ctrl-C.
+    Object? captureFailure;
+    final audioSub = source.samples.listen(
+      worker.feed,
+      onError: (Object e) {
+        captureFailure = e;
+        stop = true;
+      },
+    );
 
     final seconds = int.tryParse(args.option('seconds') ?? '');
     final deadline =
         seconds == null ? null : DateTime.now().add(Duration(seconds: seconds));
-    var stop = false;
-    final sigint = ProcessSignal.sigint.watch().listen((_) => stop = true);
-
-    stdout.writeln(_header(state, controller, floor, rangeDb));
+    stdout.writeln(_header(state, controller, floor, rangeDb, catStatus));
     var painted = 0;
 
     while (!stop && (deadline == null || DateTime.now().isBefore(deadline))) {
@@ -165,7 +179,7 @@ class ScopeCommand extends Command<int> {
       if (stdout.hasTerminal) {
         // Repaint the status line in place above the scrolling waterfall.
         stdout.write('\x1b[s\x1b[1;1H\x1b[K');
-        stdout.write(_header(state, controller, floor, rangeDb));
+        stdout.write(_header(state, controller, floor, rangeDb, catStatus));
         stdout.write('\x1b[u');
       }
       stdout.writeln(renderer.renderRows(top, bottom, floorDb, rangeDb));
@@ -173,7 +187,7 @@ class ScopeCommand extends Command<int> {
     }
 
     stdout.writeln(renderer.axis(maxHz));
-    stdout.writeln(_header(state, controller, floor, rangeDb));
+    stdout.writeln(_header(state, controller, floor, rangeDb, catStatus));
 
     await sigint.cancel();
     await audioSub.cancel();
@@ -183,6 +197,11 @@ class ScopeCommand extends Command<int> {
     await worker.dispose();
     await controller?.stop();
 
+    if (captureFailure != null) {
+      stderr.writeln();
+      stderr.writeln(captureFailure);
+      return 69;
+    }
     if (painted == 0) {
       stderr.writeln('No frames rendered — check the audio device.');
       return 1;
@@ -195,6 +214,7 @@ class ScopeCommand extends Command<int> {
     RigController? c,
     NoiseFloorTracker floor,
     double rangeDb,
+    String catStatus,
   ) {
     final freq = s.vfoAHz == null
         ? '---.------'
@@ -203,7 +223,7 @@ class ScopeCommand extends Command<int> {
     final meter = s.sMeterRaw == null ? '---' : '${s.sMeterRaw}';
     final width = s.filterWidthIndex == null ? '--' : '${s.filterWidthIndex}';
     final tx = s.transmitting ? '  [TX — blanked]' : '';
-    final link = c == null ? 'no CAT' : s.phase.name;
+    final link = c == null ? catStatus : s.phase.name;
     return '$freq MHz  $mode  S:$meter  SH:$width  '
         'floor ${floor.floorDb.toStringAsFixed(0)}dB  '
         'range ${rangeDb.toStringAsFixed(0)}dB  $link$tx';

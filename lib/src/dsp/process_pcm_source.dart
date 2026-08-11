@@ -155,6 +155,15 @@ class ProcessPcmSource implements PcmSource {
   Process? _process;
   StreamSubscription<List<int>>? _stdoutSub;
   StreamSubscription<List<int>>? _stderrSub;
+  StreamSubscription<ProcessSignal>? _sigintSub;
+
+  /// True once shutdown has begun, from either [stop] or a Ctrl-C.
+  ///
+  /// Ctrl-C in a terminal delivers SIGINT to the whole foreground process
+  /// group, so the capture child dies before our own teardown runs. Without
+  /// this, an ordinary Ctrl-C is reported as "capture process exited with
+  /// code 255" — a crash message for a clean exit.
+  bool _stopping = false;
 
   /// Carries a straddling byte between chunks.
   ///
@@ -220,6 +229,11 @@ class ProcessPcmSource implements PcmSource {
       );
     }
     _process = process;
+    _stopping = false;
+
+    // Watch SIGINT ourselves so a Ctrl-C that kills the child first is still
+    // recognised as an intentional stop rather than a failure.
+    _sigintSub = ProcessSignal.sigint.watch().listen((_) => _stopping = true);
 
     _stdoutSub = process.stdout.listen(_onBytes, onError: _controller.addError);
 
@@ -233,7 +247,7 @@ class ProcessPcmSource implements PcmSource {
 
     unawaited(
       process.exitCode.then((code) {
-        if (_controller.isClosed) return;
+        if (_controller.isClosed || _stopping) return;
         if (code != 0) {
           _controller.addError(
             PcmSourceException(
@@ -274,6 +288,9 @@ class ProcessPcmSource implements PcmSource {
 
   @override
   Future<void> stop() async {
+    _stopping = true;
+    await _sigintSub?.cancel();
+    _sigintSub = null;
     await _stdoutSub?.cancel();
     _stdoutSub = null;
     await _stderrSub?.cancel();
