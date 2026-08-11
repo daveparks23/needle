@@ -8,6 +8,7 @@ import 'package:args/command_runner.dart';
 
 import '../cat/codec.dart';
 import '../cat/commands.dart';
+import '../cat/mock_fixture.dart';
 import '../cat/mock_transport.dart';
 import '../cat/recording_transport.dart';
 import '../cat/rig_controller.dart';
@@ -81,9 +82,7 @@ class CatCommand extends Command<int> {
 
     CatTransport transport;
     if (args.flag('mock')) {
-      transport = MockTransport(
-        fixture: File('test/fixtures/cat_session_20m.txt').readAsStringSync(),
-      );
+      transport = MockTransport(fixture: kBundledCatFixture);
     } else {
       final port = args.option('port');
       if (port == null) {

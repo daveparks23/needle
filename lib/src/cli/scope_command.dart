@@ -8,6 +8,7 @@ import 'dart:typed_data';
 import 'package:args/command_runner.dart';
 
 import '../cat/commands.dart';
+import '../cat/mock_fixture.dart';
 import '../cat/mock_transport.dart';
 import '../cat/rig_controller.dart';
 import '../cat/rig_state.dart';
@@ -79,9 +80,7 @@ class ScopeCommand extends Command<int> {
     final port = args.option('port');
     if (mock || port != null) {
       final CatTransport transport = mock
-          ? MockTransport(
-              fixture: File('test/fixtures/cat_session_20m.txt').readAsStringSync(),
-            )
+          ? MockTransport(fixture: kBundledCatFixture)
           : SerialTransport(
               port!,
               baud: int.tryParse(globalResults?.option('baud') ?? '') ?? kDefaultBaud,
